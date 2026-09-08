@@ -150,3 +150,68 @@ npx prisma migrate deploy   # or `prisma migrate dev` in development
 `API_KEY_NGN_MARKET` also acts as the switch for NGN exchange-rate routing: when
 it is unset, `getDataSourceForCurrencyPair()` falls through to the globally
 configured source and the integration is inert.
+
+---
+
+# Subsystem #2 — NGX market analytics store
+
+Ghostfolio tracks only what you own or watch. This captures an exchange-wide
+daily cross-section so signals have history to reason over.
+
+**Shared HTTP client.** `NgnMarketApiService` was extracted from the phase-1
+provider so the provider and the capture job share one client — with one set of
+error semantics. Only an explicit 404 sets `isNotFound`; everything else
+degrades to `{data: null}`.
+
+**Capture.** `@Cron('0 17 * * 1-5', { timeZone: 'Africa/Lagos' })` — one hour
+after the 16:00 WAT close, weekdays, timezone pinned so it is correct regardless
+of server TZ. One `/market/snapshot` plus at most two `/companies?limit=200`
+pages: **≤3 calls per run**, roughly 60 a month against a 10,000 quota. Gated on
+`API_KEY_NGN_MARKET`, wrapped in try/catch so a DB blip cannot kill the process.
+
+**Idempotency.** `upsert` on `[date, symbol]` and `date`, chunked 25 per
+transaction. The trading date normalises to UTC midnight of the _Lagos_
+calendar day (WAT is a fixed UTC+1, no DST), resolved from `snapshot.date` →
+`snapshot.updated_at` → company `last_updated` → caller clock. Rows without a
+finite `price` are skipped, never written as zero.
+
+**Screener API**, all reading stored data only (zero API quota):
+`GET /api/v1/ngx-analytics/{movers,sectors,breadth,symbols/:symbol}`.
+
+## The envelope hazard
+
+Both the quote path and the capture loop originally did
+`if (!Array.isArray(data)) break`. The skill documents `/companies` only as
+returning `CompanyListItem[]`, but documents `/account/logs` as returning
+`{logs[], pagination{}}` — so paginated endpoints on this API do wrap. Had
+`/companies` wrapped, the result would have been **zero quotes and zero captured
+rows with no error**: indistinguishable from an exchange with no listings.
+
+`extractListPayload()` now accepts a bare array or any of `data`/`items`/
+`results`/`companies`, and returns `null` — not `[]` — when it recognises
+nothing, so the caller logs a real failure. This is the general lesson for this
+integration: **an empty result and an unparsed result must never look the same.**
+
+---
+
+# Notification layer — Resend
+
+Resend is a plain HTTP API, so the digest needs **no new dependency**;
+`package.json` and the lockfile stay untouched, which keeps upstream rebases
+clean. SMTP would have required `nodemailer`.
+
+- **Daily send** every trading day, with the verdict in the subject:
+  `NGX signals 2026-09-08 — 2 buy, 1 avoid`, or `— no action` on a quiet day, so
+  the mail can be triaged from the inbox list without being opened.
+- **Rationale is rendered as evidence**, not prose — the numbers that produced
+  each signal. An unexplained signal cannot support a buying decision.
+- **HTML is escaped.** Symbols and rationale originate from an external API and
+  land in an email body.
+- **Delivery failures are logged and swallowed.** A mail outage must not fail
+  the job that computed the signals — that would trade the signals for the
+  email.
+- Reads `NgxSignal` and `NgxMarketSnapshot` directly rather than depending on
+  the signals module, so a change to that module's API cannot break delivery.
+
+Config: `RESEND_API_KEY`, `NGX_DIGEST_FROM_EMAIL`, `NGX_DIGEST_TO_EMAIL`. Unset,
+the digest logs once and skips.

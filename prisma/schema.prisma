@@ -177,6 +177,70 @@ model MarketData {
   @@index([symbol])
 }
 
+model NgxCompanySnapshot {
+  change7dPercent    Float?
+  change52wPercent   Float?
+  createdAt          DateTime @default(now())
+  date               DateTime
+  dayHigh            Float?
+  dayLow             Float?
+  high52wk           Float?
+  id                 String   @id @default(uuid())
+  low52wk            Float?
+  marketCap          Float?
+  price              Float
+  prevClose          Float?
+  priceChangePercent Float?
+  sector             String?
+  sharesOutstanding  Float?
+  subSector          String?
+  symbol             String
+  volume             Float?
+
+  @@unique([date, symbol])
+  @@index([date])
+  @@index([sector])
+  @@index([symbol])
+  @@index([symbol, date])
+}
+
+model NgxMarketSnapshot {
+  advDecRatio         Float?
+  advancers           Int?
+  asi                 Float?
+  asiChangePercent    Float?
+  createdAt           DateTime @default(now())
+  date                DateTime @unique
+  deals               Int?
+  decliners           Int?
+  id                  String   @id @default(uuid())
+  marketCapTotal      Float?
+  turnoverRate        Float?
+  unchanged           Int?
+  valueTraded         Float?
+  volume              Float?
+  ytdAsiChangePercent Float?
+
+  @@index([date])
+}
+
+model NgxSignal {
+  createdAt DateTime           @default(now())
+  date      DateTime
+  direction NgxSignalDirection
+  id        String             @id @default(uuid())
+  rationale Json?
+  score     Float
+  symbol    String
+  type      String
+
+  @@unique([date, symbol, type])
+  @@index([date])
+  @@index([direction])
+  @@index([symbol])
+  @@index([symbol, date])
+}
+
 model Order {
   account         Account?      @relation(fields: [accountId, accountUserId], references: [id, userId])
   accountId       String?
@@ -380,6 +444,12 @@ enum DataSource {
   NGN_MARKET
   RAPID_API
   YAHOO
+}
+
+enum NgxSignalDirection {
+  AVOID
+  BUY
+  WATCH
 }
 
 enum MarketDataState {

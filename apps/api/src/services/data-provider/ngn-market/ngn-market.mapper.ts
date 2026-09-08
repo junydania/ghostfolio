@@ -203,3 +203,29 @@ export function toNgnPerUnitRates(response: NgnMarketForexCurrentResponse): {
 
   return rates;
 }
+
+/**
+ * Paginated endpoints on this API are documented only as returning
+ * "CompanyListItem[]", but the account/logs endpoint wraps its page as
+ * `{logs[], pagination{}}` — so a bare array is not safe to assume. Accept
+ * either, and return null (rather than an empty array) when neither is
+ * present, so the caller can log a real failure instead of silently
+ * behaving as though the exchange had no listings.
+ */
+export function extractListPayload<T>(data: unknown): T[] | null {
+  if (Array.isArray(data)) {
+    return data as T[];
+  }
+
+  if (data && typeof data === 'object') {
+    for (const key of ['data', 'items', 'results', 'companies']) {
+      const value = (data as Record<string, unknown>)[key];
+
+      if (Array.isArray(value)) {
+        return value as T[];
+      }
+    }
+  }
+
+  return null;
+}

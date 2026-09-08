@@ -7,6 +7,7 @@ import {
   isRangeClamped,
   normalizeChartDate,
   parseChartResponse,
+  extractListPayload,
   toAssetProfile,
   toNgnPerUnitRates,
   toQuote
@@ -285,6 +286,41 @@ describe('NgnMarketMapper', () => {
       ).toEqual({});
 
       expect(toNgnPerUnitRates(undefined)).toEqual({});
+    });
+  });
+
+  describe('extractListPayload', () => {
+    it('accepts a bare array', () => {
+      expect(extractListPayload([{ symbol: 'GTCO' }])).toEqual([
+        { symbol: 'GTCO' }
+      ]);
+    });
+
+    it('unwraps a paginated envelope', () => {
+      expect(
+        extractListPayload({
+          data: [{ symbol: 'DANGCEM' }],
+          pagination: { page: 1, total: 1 }
+        })
+      ).toEqual([{ symbol: 'DANGCEM' }]);
+    });
+
+    it('unwraps the other plausible list keys', () => {
+      expect(extractListPayload({ items: [1] })).toEqual([1]);
+      expect(extractListPayload({ results: [2] })).toEqual([2]);
+      expect(extractListPayload({ companies: [3] })).toEqual([3]);
+    });
+
+    it('returns null rather than an empty array for an unrecognised shape', () => {
+      // An empty array would be indistinguishable from "the exchange has no
+      // listings", which would fail silently.
+      expect(extractListPayload({ unexpected: true })).toBeNull();
+      expect(extractListPayload(null)).toBeNull();
+      expect(extractListPayload('nope')).toBeNull();
+    });
+
+    it('preserves a genuinely empty page', () => {
+      expect(extractListPayload({ data: [] })).toEqual([]);
     });
   });
 });

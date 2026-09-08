@@ -95,3 +95,29 @@ export interface NgnMarketForexHistoryPoint {
   date: string;
   rate: number | null;
 }
+
+export interface NgnMarketSnapshotResponse {
+  asi: number | null;
+  asi_change: number | null;
+  asi_change_percent: number | null;
+  breadth?: {
+    adv_dec_ratio: number | null;
+    advancers: number | null;
+    decliners: number | null;
+    unchanged: number | null;
+  } | null;
+  date?: string | null;
+  deals: number | null;
+  market_cap?: {
+    bonds: number | null;
+    equity: number | null;
+    etfs: number | null;
+    total: number | null;
+  } | null;
+  total_listed_securities?: number | null;
+  turnover_rate: number | null;
+  updated_at?: string | null;
+  value_traded: number | null;
+  volume: number | null;
+  ytd_asi_change_percent: number | null;
+}

@@ -8,7 +8,6 @@ import {
   GetQuotesParams,
   GetSearchParams
 } from '@ghostfolio/api/services/data-provider/interfaces/data-provider.interface';
-import { FetchService } from '@ghostfolio/api/services/fetch/fetch.service';
 import { DATE_FORMAT } from '@ghostfolio/common/helper';
 import {
   DataProviderHistoricalResponse,
@@ -18,7 +17,7 @@ import {
   LookupResponse
 } from '@ghostfolio/common/interfaces';
 
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   AssetClass,
   AssetSubClass,
@@ -33,11 +32,12 @@ import {
   NgnMarketCompanyListItem,
   NgnMarketForexCurrentResponse,
   NgnMarketForexHistoryPoint,
-  NgnMarketIdentifier,
-  NgnMarketResponse
+  NgnMarketIdentifier
 } from './interfaces/interfaces';
+import { NgnMarketApiService } from './ngn-market-api.service';
 import {
   NGN_MARKET_CURRENCY,
+  extractListPayload,
   getForeignCurrencyOfPair,
   isNgnCurrencyPair,
   isRangeClamped,
@@ -47,23 +47,14 @@ import {
   toQuote
 } from './ngn-market.mapper';
 
-interface NgnMarketRequestResult<T> {
-  data: T | null;
-  isNotFound: boolean;
-}
-
 @Injectable()
-export class NgnMarketService implements DataProviderInterface, OnModuleInit {
-  private static readonly BASE_URL = 'https://api.ngnmarket.com/v1';
+export class NgnMarketService implements DataProviderInterface {
   private static readonly COMPANIES_PAGE_SIZE = 200;
   private static readonly IDENTIFIERS_CACHE_TTL = 24 * 60 * 60 * 1000;
   private static readonly MAX_COMPANY_PAGES = 5;
-  private static readonly QUOTA_WARNING_RATIO = 0.1;
 
   private readonly logger = new Logger(NgnMarketService.name);
 
-  private apiKey: string;
-  private hasLoggedAuthenticationError = false;
   private identifiersCache: {
     expiresAt: number;
     items: NgnMarketIdentifier[];
@@ -71,12 +62,8 @@ export class NgnMarketService implements DataProviderInterface, OnModuleInit {
 
   public constructor(
     private readonly configurationService: ConfigurationService,
-    private readonly fetchService: FetchService
+    private readonly ngnMarketApiService: NgnMarketApiService
   ) {}
-
-  public onModuleInit() {
-    this.apiKey = this.configurationService.get('API_KEY_NGN_MARKET');
-  }
 
   public canHandle() {
     return true;
@@ -114,7 +101,7 @@ export class NgnMarketService implements DataProviderInterface, OnModuleInit {
     }
 
     const { data: company, isNotFound } =
-      await this.request<NgnMarketCompanyDetail>({
+      await this.ngnMarketApiService.request<NgnMarketCompanyDetail>({
         requestTimeout,
         path: `/companies/${encodeURIComponent(symbol)}`
       });
@@ -161,15 +148,16 @@ export class NgnMarketService implements DataProviderInterface, OnModuleInit {
       });
     }
 
-    const { data: response } = await this.request<NgnMarketChartResponse>({
-      requestTimeout,
-      path: `/companies/${encodeURIComponent(symbol)}/chart`,
-      searchParams: {
-        format: 'chart',
-        from: format(from, DATE_FORMAT),
-        to: format(to, DATE_FORMAT)
-      }
-    });
+    const { data: response } =
+      await this.ngnMarketApiService.request<NgnMarketChartResponse>({
+        requestTimeout,
+        path: `/companies/${encodeURIComponent(symbol)}/chart`,
+        searchParams: {
+          format: 'chart',
+          from: format(from, DATE_FORMAT),
+          to: format(to, DATE_FORMAT)
+        }
+      });
 
     if (!response) {
       return {};
@@ -293,7 +281,9 @@ export class NgnMarketService implements DataProviderInterface, OnModuleInit {
     const companies: NgnMarketCompanyListItem[] = [];
 
     for (let page = 1; page <= NgnMarketService.MAX_COMPANY_PAGES; page++) {
-      const { data } = await this.request<NgnMarketCompanyListItem[]>({
+      const { data } = await this.ngnMarketApiService.request<
+        NgnMarketCompanyListItem[]
+      >({
         requestTimeout,
         path: '/companies',
         searchParams: {
@@ -302,13 +292,23 @@ export class NgnMarketService implements DataProviderInterface, OnModuleInit {
         }
       });
 
-      if (!Array.isArray(data) || data.length === 0) {
+      const page_ = extractListPayload<NgnMarketCompanyListItem>(data);
+
+      if (page_ === null) {
+        this.logger.error(
+          'Could not read a company list from /companies — the response shape is not recognised'
+        );
+
         break;
       }
 
-      companies.push(...data);
+      if (page_.length === 0) {
+        break;
+      }
 
-      if (data.length < NgnMarketService.COMPANIES_PAGE_SIZE) {
+      companies.push(...page_);
+
+      if (page_.length < NgnMarketService.COMPANIES_PAGE_SIZE) {
         break;
       }
     }
@@ -321,10 +321,11 @@ export class NgnMarketService implements DataProviderInterface, OnModuleInit {
   }: {
     requestTimeout: number;
   }): Promise<{ [currency: string]: number }> {
-    const { data } = await this.request<NgnMarketForexCurrentResponse>({
-      requestTimeout,
-      path: '/forex/current'
-    });
+    const { data } =
+      await this.ngnMarketApiService.request<NgnMarketForexCurrentResponse>({
+        requestTimeout,
+        path: '/forex/current'
+      });
 
     return toNgnPerUnitRates(data);
   }
@@ -340,7 +341,9 @@ export class NgnMarketService implements DataProviderInterface, OnModuleInit {
     symbol: string;
     to: Date;
   }): Promise<{ [date: string]: DataProviderHistoricalResponse }> {
-    const { data } = await this.request<NgnMarketForexHistoryPoint[]>({
+    const { data } = await this.ngnMarketApiService.request<
+      NgnMarketForexHistoryPoint[]
+    >({
       requestTimeout,
       path: '/forex/history',
       searchParams: {
@@ -373,7 +376,9 @@ export class NgnMarketService implements DataProviderInterface, OnModuleInit {
       return this.identifiersCache.items;
     }
 
-    const { data } = await this.request<NgnMarketIdentifier[]>({
+    const { data } = await this.ngnMarketApiService.request<
+      NgnMarketIdentifier[]
+    >({
       requestTimeout,
       path: '/companies/identifiers'
     });
@@ -388,116 +393,5 @@ export class NgnMarketService implements DataProviderInterface, OnModuleInit {
     };
 
     return data;
-  }
-
-  /**
-   * Every failure degrades to null rather than throwing: portfolio snapshots
-   * span all data providers, so an NGN Market outage must not take unrelated
-   * holdings down with it.
-   */
-  private async request<T>({
-    path,
-    requestTimeout,
-    searchParams = {}
-  }: {
-    path: string;
-    requestTimeout: number;
-    searchParams?: { [key: string]: string };
-  }): Promise<NgnMarketRequestResult<T>> {
-    if (!this.apiKey) {
-      this.logAuthenticationErrorOnce(
-        'API_KEY_NGN_MARKET is not set, skipping request'
-      );
-
-      return { data: null, isNotFound: false };
-    }
-
-    const queryParams = new URLSearchParams(searchParams).toString();
-    const url = `${NgnMarketService.BASE_URL}${path}${
-      queryParams ? `?${queryParams}` : ''
-    }`;
-
-    try {
-      const response = await this.fetchService.fetch(url, {
-        headers: { Authorization: `Bearer ${this.apiKey}` },
-        signal: AbortSignal.timeout(requestTimeout)
-      });
-
-      if (response.status === 401 || response.status === 403) {
-        this.logAuthenticationErrorOnce(
-          `${path} returned ${response.status} — check API_KEY_NGN_MARKET and your plan`
-        );
-
-        return { data: null, isNotFound: false };
-      }
-
-      if (response.status === 429) {
-        this.logger.error(
-          `${path} was rate limited or the monthly quota is exhausted${
-            response.headers.get('Retry-After')
-              ? `, retry after ${response.headers.get('Retry-After')}s`
-              : ''
-          }`
-        );
-
-        return { data: null, isNotFound: false };
-      }
-
-      // Only an explicit 404 means the symbol does not exist. Every other
-      // failure must stay distinguishable, because callers translate
-      // not-found into AssetProfileDelistedError, which deactivates the
-      // symbol profile.
-      if (response.status === 404) {
-        return { data: null, isNotFound: true };
-      }
-
-      const json = (await response.json()) as NgnMarketResponse<T>;
-
-      this.warnOnLowQuota(json);
-
-      if (!json?.success) {
-        this.logger.error(
-          `${path} failed: ${json?.error?.code ?? 'UNKNOWN'} ${
-            json?.error?.message ?? ''
-          }`.trim()
-        );
-
-        return {
-          data: null,
-          isNotFound: json?.error?.code === 'NOT_FOUND'
-        };
-      }
-
-      return { data: json.data, isNotFound: false };
-    } catch (error) {
-      this.logger.error(`${path} failed: ${error?.message ?? error}`);
-
-      return { data: null, isNotFound: false };
-    }
-  }
-
-  private logAuthenticationErrorOnce(message: string) {
-    if (this.hasLoggedAuthenticationError) {
-      return;
-    }
-
-    this.hasLoggedAuthenticationError = true;
-
-    this.logger.error(message);
-  }
-
-  private warnOnLowQuota(response: Pick<NgnMarketResponse<unknown>, 'meta'>) {
-    const { calls_limit, calls_remaining } = response?.meta ?? {};
-
-    if (
-      typeof calls_limit === 'number' &&
-      typeof calls_remaining === 'number' &&
-      calls_limit > 0 &&
-      calls_remaining / calls_limit < NgnMarketService.QUOTA_WARNING_RATIO
-    ) {
-      this.logger.warn(
-        `Only ${calls_remaining} of ${calls_limit} NGN Market API calls remain this period`
-      );
-    }
   }
 }
