@@ -215,3 +215,93 @@ clean. SMTP would have required `nodemailer`.
 
 Config: `RESEND_API_KEY`, `NGX_DIGEST_FROM_EMAIL`, `NGX_DIGEST_TO_EMAIL`. Unset,
 the digest logs once and skips.
+
+---
+
+# Subsystem #3 — signals engine
+
+Signals are **derived and explainable, never predictive**. `score` is signed and
+bounded to [-1, 1]: positive is evidence for buying, negative against. It is
+evidence strength, not a probability, forecast or advice — and the UI is held to
+the same line.
+
+Every signal's `rationale` records the values compared, the thresholds tested,
+the observation count behind them, and the regime block. An unexplained signal
+cannot support a buying decision.
+
+**Rules** (minimum observations in brackets; below it a rule returns _nothing_,
+never a weakened signal computed from too little history):
+
+- **Moving-average trend** [25] — price vs its 20-day SMA, gated on the SMA's own
+  slope, so price above a _falling_ average reads as a bounce (WATCH) rather than
+  a trend. Thresholds are asymmetric (+3% / −5%) because thin NGX counters dip
+  below their average routinely.
+- **Relative strength** [8 for the 7d leg, 31 for the 30d] — return vs the
+  exchange-wide median, degrading to 7d alone while history accumulates and
+  naming the horizons used, so a 7-day signal is never mistaken for a 30-day one.
+  A horizon backed by fewer than 20 symbols is dropped: a median over a handful
+  of names is not the exchange.
+- **52-week position** [1] — the only rule that works from day one, since the
+  bounds come from the API. Requires the range to span ≥5% of price.
+- **Volume anomaly** [21] — volume vs a 20-observation trailing average, with the
+  day's price move deciding direction. A busy but directionless day is WATCH.
+
+**Regime gate.** Breadth plus ASI vs its 10-day average. A bearish regime demotes
+BUY→WATCH and halves the score; it never promotes, and never touches AVOID or
+WATCH. A wrong regime call therefore costs a missed signal, not a bad one.
+No market snapshot → regime UNKNOWN, recorded in every rationale, no demotion.
+
+**Re-evaluation replaces, never appends.** `evaluate()` upserts on
+[date, symbol, type] and deletes signals for that date the rules no longer
+produce, so a corrected snapshot cannot leave a stale BUY behind.
+
+## Daily chain
+
+One cron at `0 17 * * 1-5` (Africa/Lagos): **capture → evaluate → digest**, in
+that order, each depending on the one before. A failure part-way stops the
+chain rather than reporting on stale data. `CronService` is built by a
+positional `useFactory`, so any new dependency must be added in five
+coordinated places — `inject`, factory params, the `new CronService(...)` call,
+module `imports`, and the constructor — or the argument mapping shifts silently.
+
+# In-app page
+
+`/ngx`, with signals grouped BUY / WATCH / AVOID and a screener (movers,
+sectors, breadth) plus per-symbol drill-down. Each card renders the rationale as
+evidence — observed values beside the thresholds tested — not a number and a
+colour. Empty and partial-history states are first class: the tables fill one
+trading day at a time and an empty BUY group is a normal outcome, so the page
+explains that rather than looking broken.
+
+# Status and the standing caveat
+
+All four pieces are implemented, typechecked, linted and unit-tested
+(60 API suites / 393 tests; client builds clean).
+
+**None of it has run against the live NGN Market API or a Postgres database.**
+Every response shape traces to `.agents/skills/ngnmarket/SKILL.md`. No migration
+has been applied; no upsert has executed, so idempotency is argued from unique
+constraints rather than demonstrated. Thresholds are reasoned, not calibrated
+against real NGX distributions, and are worth revisiting once a few weeks of
+snapshots exist.
+
+Two shape bugs were already caught by re-reading documentation rather than by
+running anything: the forex `rate`/`inverse_rate` inversion (wrong by a factor
+of ~2.6 million) and the `/companies` envelope (would have failed silently and
+totally). Expect the first live run to surface more of the same class.
+
+## Bringing it up
+
+```bash
+API_KEY_NGN_MARKET=ngm_live_...
+DATA_SOURCES=["COINGECKO","MANUAL","NGN_MARKET","YAHOO"]
+RESEND_API_KEY=re_...
+NGX_DIGEST_FROM_EMAIL=...
+NGX_DIGEST_TO_EMAIL=...
+```
+
+```bash
+npx prisma migrate deploy
+```
+
+Then search for `DANGCEM`, and let one capture run at 17:00 WAT.
