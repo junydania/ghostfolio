@@ -84,6 +84,11 @@ export const routes: Routes = [
     title: internalRoutes.i18n.title
   },
   {
+    path: internalRoutes.ngx.path,
+    loadChildren: () =>
+      import('./pages/ngx/ngx-page.routes').then((m) => m.routes)
+  },
+  {
     path: publicRoutes.markets.path,
     loadChildren: () =>
       import('./pages/markets/markets-page.routes').then((m) => m.routes)

@@ -1,0 +1,479 @@
+<div class="container">
+  <h1 class="d-none d-sm-block h3 mb-4 text-center" i18n>Screener</h1>
+
+  <div class="row">
+    <div class="col-xs-12 col-md-10 offset-md-1">
+      <div class="d-flex justify-content-center mb-3">
+        <gf-toggle
+          [defaultValue]="days().toString()"
+          [isLoading]="isLoadingMovers()"
+          [options]="daysOptions"
+          (valueChange)="onChangeDays($event.value)"
+        />
+      </div>
+
+      @if (measuredPeriod(); as period) {
+        <div class="mb-4 text-center text-muted">
+          <small
+            ><ng-container i18n>Measured between</ng-container>
+            {{ period.startDate }}
+            <ng-container i18n>and</ng-container>
+            {{ period.endDate }}
+            <ng-container i18n
+              >, which is as far back as the capture reaches.</ng-container
+            ></small
+          >
+        </div>
+      }
+
+      <!-- Market breadth -->
+      <h2 class="h5 mb-2" i18n>Market breadth</h2>
+      @if (isLoadingBreadth()) {
+        <ngx-skeleton-loader
+          animation="pulse"
+          class="d-block mb-4"
+          [theme]="{
+            height: '10rem',
+            width: '100%'
+          }"
+        />
+      } @else if (hasBreadthError()) {
+        <div class="mb-4 p-3 text-center text-muted">
+          <small i18n
+            >The market breadth could not be loaded. Please try again
+            later.</small
+          >
+        </div>
+      } @else if (!breadth().length) {
+        <div class="mb-4 p-3 text-center text-muted">
+          <small i18n
+            >No market snapshot has been captured for this period yet. Capture
+            runs once per trading day, after the NGX close.</small
+          >
+        </div>
+      } @else {
+        @if (latestBreadth(); as latest) {
+          <div class="mb-3 row">
+            <div class="col-6 col-md-3 mb-2">
+              <gf-value
+                size="medium"
+                [locale]="locale()"
+                [precision]="0"
+                [value]="latest.advancers ?? '–'"
+                ><ng-container i18n>Advancers</ng-container></gf-value
+              >
+            </div>
+            <div class="col-6 col-md-3 mb-2">
+              <gf-value
+                size="medium"
+                [locale]="locale()"
+                [precision]="0"
+                [value]="latest.decliners ?? '–'"
+                ><ng-container i18n>Decliners</ng-container></gf-value
+              >
+            </div>
+            <div class="col-6 col-md-3 mb-2">
+              <gf-value
+                size="medium"
+                [locale]="locale()"
+                [precision]="0"
+                [value]="latest.unchanged ?? '–'"
+                ><ng-container i18n>Unchanged</ng-container></gf-value
+              >
+            </div>
+            <div class="col-6 col-md-3 mb-2">
+              <gf-value
+                size="medium"
+                [locale]="locale()"
+                [precision]="2"
+                [value]="latest.advDecRatio ?? '–'"
+                ><ng-container i18n>Advance/decline</ng-container></gf-value
+              >
+            </div>
+          </div>
+
+          <div class="mb-2 text-muted">
+            <small
+              ><ng-container i18n>Latest capture</ng-container>
+              {{ latest.date }}</small
+            >
+          </div>
+        }
+
+        @if (asiDataItems().length) {
+          <div class="mb-2 text-muted">
+            <small i18n>All Share Index</small>
+          </div>
+          <gf-line-chart
+            class="mb-4 d-block"
+            label="ASI"
+            [colorScheme]="user()?.settings?.colorScheme"
+            [historicalDataItems]="asiDataItems()"
+            [isAnimated]="true"
+            [locale]="locale()"
+            [showXAxis]="true"
+            [showYAxis]="true"
+          />
+        } @else {
+          <div class="mb-4 text-muted">
+            <small i18n
+              >No All Share Index values have been captured for this period
+              yet.</small
+            >
+          </div>
+        }
+      }
+
+      <!-- Movers -->
+      <h2 class="h5 mb-2" i18n>Top movers</h2>
+      @if (isLoadingMovers()) {
+        <ngx-skeleton-loader
+          animation="pulse"
+          class="d-block mb-4"
+          [theme]="{
+            height: '12rem',
+            width: '100%'
+          }"
+        />
+      } @else if (hasMoversError()) {
+        <div class="mb-4 p-3 text-center text-muted">
+          <small i18n
+            >The movers could not be loaded. Please try again later.</small
+          >
+        </div>
+      } @else if (!gainers().length && !losers().length) {
+        <div class="mb-4 p-3 text-center text-muted">
+          <small i18n
+            >No company snapshots have been captured for this period yet. A move
+            needs at least two stored trading days.</small
+          >
+        </div>
+      } @else {
+        <div class="mb-2 text-muted">
+          <small i18n>Gainers</small>
+        </div>
+        <div class="mb-4 overflow-x-auto">
+          <table
+            class="gf-table w-100"
+            mat-table
+            [dataSource]="gainersDataSource"
+          >
+            <ng-container matColumnDef="symbol">
+              <th *matHeaderCellDef class="px-1" mat-header-cell>
+                <ng-container i18n>Symbol</ng-container>
+              </th>
+              <td *matCellDef="let element" class="px-1" mat-cell>
+                <a [routerLink]="onSymbolRouterLink(element.symbol)">{{
+                  element.symbol
+                }}</a>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="sector">
+              <th
+                *matHeaderCellDef
+                class="d-none d-lg-table-cell px-1"
+                mat-header-cell
+              >
+                <ng-container i18n>Sector</ng-container>
+              </th>
+              <td
+                *matCellDef="let element"
+                class="d-none d-lg-table-cell px-1 text-muted"
+                mat-cell
+              >
+                {{ element.sector }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="performance">
+              <th *matHeaderCellDef class="px-1 text-right" mat-header-cell>
+                <ng-container i18n>Performance</ng-container>
+              </th>
+              <td *matCellDef="let element" class="px-1" mat-cell>
+                <div class="d-flex justify-content-end">
+                  <gf-value
+                    [class.text-danger]="element.performancePercent < 0"
+                    [class.text-success]="element.performancePercent > 0"
+                    [locale]="locale()"
+                    [precision]="2"
+                    [unit]="'%'"
+                    [value]="element.performancePercent ?? '–'"
+                  />
+                </div>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="price">
+              <th *matHeaderCellDef class="px-1 text-right" mat-header-cell>
+                <ng-container i18n>Price</ng-container>
+              </th>
+              <td *matCellDef="let element" class="px-1" mat-cell>
+                <div class="d-flex justify-content-end">
+                  <gf-value
+                    [isCurrency]="true"
+                    [locale]="locale()"
+                    [unit]="NGX_CURRENCY"
+                    [value]="element.endPrice"
+                  />
+                </div>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="volume">
+              <th
+                *matHeaderCellDef
+                class="d-none d-md-table-cell px-1 text-right"
+                mat-header-cell
+              >
+                <ng-container i18n>Volume</ng-container>
+              </th>
+              <td
+                *matCellDef="let element"
+                class="d-none d-md-table-cell px-1"
+                mat-cell
+              >
+                <div class="d-flex justify-content-end">
+                  <gf-value
+                    [locale]="locale()"
+                    [precision]="0"
+                    [value]="element.volume ?? '–'"
+                  />
+                </div>
+              </td>
+            </ng-container>
+
+            <tr *matHeaderRowDef="moversColumns" mat-header-row></tr>
+            <tr *matRowDef="let row; columns: moversColumns" mat-row></tr>
+          </table>
+
+          @if (!gainers().length) {
+            <div class="p-3 text-center text-muted">
+              <small i18n>No symbol gained over this period.</small>
+            </div>
+          }
+        </div>
+
+        <div class="mb-2 text-muted">
+          <small i18n>Losers</small>
+        </div>
+        <div class="mb-4 overflow-x-auto">
+          <table
+            class="gf-table w-100"
+            mat-table
+            [dataSource]="losersDataSource"
+          >
+            <ng-container matColumnDef="symbol">
+              <th *matHeaderCellDef class="px-1" mat-header-cell>
+                <ng-container i18n>Symbol</ng-container>
+              </th>
+              <td *matCellDef="let element" class="px-1" mat-cell>
+                <a [routerLink]="onSymbolRouterLink(element.symbol)">{{
+                  element.symbol
+                }}</a>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="sector">
+              <th
+                *matHeaderCellDef
+                class="d-none d-lg-table-cell px-1"
+                mat-header-cell
+              >
+                <ng-container i18n>Sector</ng-container>
+              </th>
+              <td
+                *matCellDef="let element"
+                class="d-none d-lg-table-cell px-1 text-muted"
+                mat-cell
+              >
+                {{ element.sector }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="performance">
+              <th *matHeaderCellDef class="px-1 text-right" mat-header-cell>
+                <ng-container i18n>Performance</ng-container>
+              </th>
+              <td *matCellDef="let element" class="px-1" mat-cell>
+                <div class="d-flex justify-content-end">
+                  <gf-value
+                    [class.text-danger]="element.performancePercent < 0"
+                    [class.text-success]="element.performancePercent > 0"
+                    [locale]="locale()"
+                    [precision]="2"
+                    [unit]="'%'"
+                    [value]="element.performancePercent ?? '–'"
+                  />
+                </div>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="price">
+              <th *matHeaderCellDef class="px-1 text-right" mat-header-cell>
+                <ng-container i18n>Price</ng-container>
+              </th>
+              <td *matCellDef="let element" class="px-1" mat-cell>
+                <div class="d-flex justify-content-end">
+                  <gf-value
+                    [isCurrency]="true"
+                    [locale]="locale()"
+                    [unit]="NGX_CURRENCY"
+                    [value]="element.endPrice"
+                  />
+                </div>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="volume">
+              <th
+                *matHeaderCellDef
+                class="d-none d-md-table-cell px-1 text-right"
+                mat-header-cell
+              >
+                <ng-container i18n>Volume</ng-container>
+              </th>
+              <td
+                *matCellDef="let element"
+                class="d-none d-md-table-cell px-1"
+                mat-cell
+              >
+                <div class="d-flex justify-content-end">
+                  <gf-value
+                    [locale]="locale()"
+                    [precision]="0"
+                    [value]="element.volume ?? '–'"
+                  />
+                </div>
+              </td>
+            </ng-container>
+
+            <tr *matHeaderRowDef="moversColumns" mat-header-row></tr>
+            <tr *matRowDef="let row; columns: moversColumns" mat-row></tr>
+          </table>
+
+          @if (!losers().length) {
+            <div class="p-3 text-center text-muted">
+              <small i18n>No symbol lost over this period.</small>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Sectors -->
+      <h2 class="h5 mb-2" i18n>Sector performance</h2>
+      @if (isLoadingSectors()) {
+        <ngx-skeleton-loader
+          animation="pulse"
+          class="d-block mb-4"
+          [theme]="{
+            height: '10rem',
+            width: '100%'
+          }"
+        />
+      } @else if (hasSectorsError()) {
+        <div class="mb-4 p-3 text-center text-muted">
+          <small i18n
+            >The sector performance could not be loaded. Please try again
+            later.</small
+          >
+        </div>
+      } @else if (!sectors().length) {
+        <div class="mb-4 p-3 text-center text-muted">
+          <small i18n
+            >No sector performance is available for this period yet.</small
+          >
+        </div>
+      } @else {
+        <div class="mb-4 overflow-x-auto">
+          <table
+            class="gf-table w-100"
+            mat-table
+            [dataSource]="sectorsDataSource"
+          >
+            <ng-container matColumnDef="sector">
+              <th *matHeaderCellDef class="px-1" mat-header-cell>
+                <ng-container i18n>Sector</ng-container>
+              </th>
+              <td *matCellDef="let element" class="px-1" mat-cell>
+                {{ element.sector }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="performance">
+              <th *matHeaderCellDef class="px-1 text-right" mat-header-cell>
+                <ng-container i18n>Performance</ng-container>
+              </th>
+              <td *matCellDef="let element" class="px-1" mat-cell>
+                <div class="d-flex justify-content-end">
+                  <gf-value
+                    [class.text-danger]="element.performancePercent < 0"
+                    [class.text-success]="element.performancePercent > 0"
+                    [locale]="locale()"
+                    [precision]="2"
+                    [unit]="'%'"
+                    [value]="element.performancePercent ?? '–'"
+                  />
+                </div>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="companies">
+              <th
+                *matHeaderCellDef
+                class="d-none d-md-table-cell px-1 text-right"
+                mat-header-cell
+              >
+                <ng-container i18n>Companies</ng-container>
+              </th>
+              <td
+                *matCellDef="let element"
+                class="d-none d-md-table-cell px-1 text-right"
+                mat-cell
+              >
+                {{ element.companyCount }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="breadth">
+              <th *matHeaderCellDef class="px-1 text-right" mat-header-cell>
+                <ng-container i18n>Up / down</ng-container>
+              </th>
+              <td *matCellDef="let element" class="px-1 text-right" mat-cell>
+                <span class="text-success">{{ element.advancers }}</span>
+                /
+                <span class="text-danger">{{ element.decliners }}</span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="volume">
+              <th
+                *matHeaderCellDef
+                class="d-none d-lg-table-cell px-1 text-right"
+                mat-header-cell
+              >
+                <ng-container i18n>Volume</ng-container>
+              </th>
+              <td
+                *matCellDef="let element"
+                class="d-none d-lg-table-cell px-1"
+                mat-cell
+              >
+                <div class="d-flex justify-content-end">
+                  <gf-value
+                    [locale]="locale()"
+                    [precision]="0"
+                    [value]="element.totalVolume ?? '–'"
+                  />
+                </div>
+              </td>
+            </ng-container>
+
+            <tr *matHeaderRowDef="sectorsColumns" mat-header-row></tr>
+            <tr *matRowDef="let row; columns: sectorsColumns" mat-row></tr>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+</div>
