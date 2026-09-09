@@ -404,9 +404,10 @@ export class NgnMarketService implements DataProviderInterface {
     });
 
     const result: { [date: string]: DataProviderHistoricalResponse } = {};
+    const points = extractListPayload<NgnMarketForexHistoryPoint>(data);
 
-    if (Array.isArray(data)) {
-      for (const { date, rate } of data) {
+    if (points) {
+      for (const { date, rate } of points) {
         if (date && typeof rate === 'number' && isFinite(rate)) {
           result[date] = { marketPrice: rate };
         }
@@ -432,15 +433,21 @@ export class NgnMarketService implements DataProviderInterface {
       path: '/companies/identifiers'
     });
 
-    if (!Array.isArray(data)) {
+    const identifiers = extractListPayload<NgnMarketIdentifier>(data);
+
+    if (identifiers === null) {
+      this.logger.error(
+        'Could not read an identifier list from /companies/identifiers — the response shape is not recognised'
+      );
+
       return this.identifiersCache?.items ?? [];
     }
 
     this.identifiersCache = {
       expiresAt: Date.now() + NgnMarketService.IDENTIFIERS_CACHE_TTL,
-      items: data
+      items: identifiers
     };
 
-    return data;
+    return identifiers;
   }
 }

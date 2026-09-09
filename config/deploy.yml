@@ -1,0 +1,64 @@
+# Kamal base config for the Ghostfolio fork (NGX / Nigerian Exchange build).
+#
+# PRODUCTION is not provisioned. The only valid target is the staging
+# destination overlay (config/deploy.staging.yml):
+#
+#   kamal deploy -d staging
+#
+# A bare `kamal deploy` has no hosts and fails fast — deliberate, so nothing
+# ships to an unconfigured environment.
+#
+# No nginx/caddy accessory: the shared `kamal-proxy` container owns 80/443 on
+# the box and routes by hostname, so this app coexists with the other Kamal
+# apps already there. See the proxy block in the destination overlay.
+service: ghostfolio
+
+# Pushed to GHCR as ghcr.io/<image>.
+image: kodejedi/ghostfolio
+
+servers:
+  web:
+    hosts: []
+
+registry:
+  server: ghcr.io
+  username: kodejedi
+  # Classic PAT with write:packages (deployer pushes) + read:packages (the
+  # server pulls). Sourced from .kamal/secrets-common, never committed.
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+env:
+  clear:
+    # Ghostfolio listens on 3333 (Dockerfile EXPOSE ${PORT:-3333}).
+    HOST: 0.0.0.0
+    PORT: 3333
+    # Accessory containers below, reachable over the Kamal docker network.
+    # Kamal names them <service>-<accessory>.
+    REDIS_HOST: ghostfolio-redis
+    REDIS_PORT: 6379
+    # NGN_MARKET must be listed or the provider is registered but never
+    # offered as a selectable source.
+    DATA_SOURCES: '["COINGECKO","MANUAL","NGN_MARKET","YAHOO"]'
+    # Drives the daily NGX chain: capture -> evaluate signals -> email digest.
+    ENABLE_FEATURE_CRON: 'true'
+  secret:
+    - ACCESS_TOKEN_SALT
+    - API_KEY_NGN_MARKET
+    - DATABASE_URL
+    - JWT_SECRET_KEY
+    - NGX_DIGEST_FROM_EMAIL
+    - NGX_DIGEST_TO_EMAIL
+    - REDIS_PASSWORD
+    - RESEND_API_KEY
+
+# The staging box is x86; build for it explicitly rather than inheriting an
+# arm64 laptop's arch.
+builder:
+  arch: amd64
+
+aliases:
+  logs: app logs -f
+  shell: app exec --interactive --reuse "sh"
+  # Run the NGX capture by hand instead of waiting for 17:00 WAT.
+  psql: accessory exec db --interactive --reuse "psql -U ghostfolio -d ghostfolio"
