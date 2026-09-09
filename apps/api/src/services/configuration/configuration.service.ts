@@ -51,10 +51,14 @@ export class ConfigurationService {
       API_KEY_COINGECKO_PRO: str({ default: '' }),
       API_KEY_EOD_HISTORICAL_DATA: str({ default: '' }),
       API_KEY_FINANCIAL_MODELING_PREP: str({ default: '' }),
+      API_KEY_NGN_MARKET: str({ default: '' }),
       API_KEY_OPEN_FIGI: str({ default: '' }),
       API_KEY_RAPID_API: str({ default: '' }),
       CACHE_QUOTES_TTL: num({ default: ms('1 minute') }),
       CACHE_TTL: num({ default: CACHE_TTL_NO_CACHE }),
+      NGX_DIGEST_FROM_EMAIL: str({ default: '' }),
+      NGX_DIGEST_TO_EMAIL: str({ default: '' }),
+      RESEND_API_KEY: str({ default: '' }),
       DATA_SOURCE_EXCHANGE_RATES: str({ default: DataSource.YAHOO }),
       DATA_SOURCE_FEAR_AND_GREED_INDEX_STOCKS: str({
         default: DataSource.MANUAL

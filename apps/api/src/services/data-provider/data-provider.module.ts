@@ -8,6 +8,8 @@ import { FinancialModelingPrepService } from '@ghostfolio/api/services/data-prov
 import { GhostfolioService } from '@ghostfolio/api/services/data-provider/ghostfolio/ghostfolio.service';
 import { GoogleSheetsService } from '@ghostfolio/api/services/data-provider/google-sheets/google-sheets.service';
 import { ManualService } from '@ghostfolio/api/services/data-provider/manual/manual.service';
+import { NgnMarketApiService } from '@ghostfolio/api/services/data-provider/ngn-market/ngn-market-api.service';
+import { NgnMarketService } from '@ghostfolio/api/services/data-provider/ngn-market/ngn-market.service';
 import { RapidApiService } from '@ghostfolio/api/services/data-provider/rapid-api/rapid-api.service';
 import { YahooFinanceService } from '@ghostfolio/api/services/data-provider/yahoo-finance/yahoo-finance.service';
 import { FetchModule } from '@ghostfolio/api/services/fetch/fetch.module';
@@ -43,6 +45,8 @@ import { DataProviderService } from './data-provider.service';
     GhostfolioService,
     GoogleSheetsService,
     ManualService,
+    NgnMarketApiService,
+    NgnMarketService,
     RapidApiService,
     YahooFinanceService,
     {
@@ -54,6 +58,7 @@ import { DataProviderService } from './data-provider.service';
         GhostfolioService,
         GoogleSheetsService,
         ManualService,
+        NgnMarketService,
         RapidApiService,
         YahooFinanceService
       ],
@@ -66,6 +71,7 @@ import { DataProviderService } from './data-provider.service';
         ghostfolioService,
         googleSheetsService,
         manualService,
+        ngnMarketService,
         rapidApiService,
         yahooFinanceService
       ) => [
@@ -76,12 +82,18 @@ import { DataProviderService } from './data-provider.service';
         ghostfolioService,
         googleSheetsService,
         manualService,
+        ngnMarketService,
         rapidApiService,
         yahooFinanceService
       ]
     },
     YahooFinanceDataEnhancerService
   ],
-  exports: [DataProviderService, ManualService, YahooFinanceService]
+  exports: [
+    DataProviderService,
+    ManualService,
+    NgnMarketApiService,
+    YahooFinanceService
+  ]
 })
 export class DataProviderModule {}

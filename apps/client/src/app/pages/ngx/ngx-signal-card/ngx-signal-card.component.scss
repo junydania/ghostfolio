@@ -1,0 +1,30 @@
+:host {
+  display: block;
+
+  .ngx-signal-card {
+    border: 1px solid
+      rgba(
+        var(--palette-foreground-divider),
+        var(--palette-foreground-divider-alpha)
+      );
+    border-radius: 0.25rem;
+
+    .evidence-heading {
+      font-size: 80%;
+      letter-spacing: 0.05rem;
+    }
+
+    .evidence-list {
+      font-size: 90%;
+    }
+  }
+}
+
+:host-context(.theme-dark) {
+  .ngx-signal-card {
+    border-color: rgba(
+      var(--palette-foreground-divider-dark),
+      var(--palette-foreground-divider-dark-alpha)
+    );
+  }
+}

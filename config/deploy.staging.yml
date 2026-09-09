@@ -1,0 +1,106 @@
+# Kamal destination overlay for STAGING on the shared KodeJedi SaaS box.
+# Deploy: kamal deploy -d staging
+#
+# Host: 51.89.193.136 — the generic multi-app staging server shared by the
+# other SaaS apps. Host provisioning lives with the kodejedi-saas Ansible,
+# NOT here; do not double-manage the box.
+#
+# Multi-app pattern: the shared `kamal-proxy` container owns 80/443 for the
+# whole host and routes by hostname. Kamal boots or reuses it automatically
+# (fixed container name `kamal-proxy`), so this app coexists with the others
+# — it just deploys with its own `proxy.host`.
+#
+# First deploy (one time):
+#   0. DNS: <host below> A -> 51.89.193.136
+#   1. kamal accessory boot db -d staging
+#   2. kamal accessory boot redis -d staging
+#   3. kamal deploy -d staging      # also boots kamal-proxy + TLS cert
+
+# The container entrypoint runs `prisma migrate deploy` and the seed before
+# the server listens. On a first deploy that is a fresh schema plus every
+# migration, so give kamal-proxy's health gate more than the 30s default to
+# see /api/v1/health answer.
+deploy_timeout: 180
+
+servers:
+  web:
+    hosts:
+      - 51.89.193.136
+
+# Host-based routing + automatic Let's Encrypt TLS on the shared proxy.
+# app_port matches Ghostfolio's PORT (3333).
+# forward_headers: with ssl on, kamal-proxy stops forwarding
+# X-Forwarded-For/Proto unless asked; keep them flowing so client IP and
+# scheme are real behind the proxy.
+# TLS is OFF for the first deploy on purpose. kamal-proxy requests a Let's
+# Encrypt certificate as soon as ssl is true, and the ACME HTTP-01 challenge
+# needs portfolio.staging.kodejedi.com to already resolve to this box. DNS is
+# being pointed after the first deploy, so enabling TLS now would just fail
+# the challenge and leave the proxy retrying.
+#
+# Once the A record resolves:  set ssl: true and run `kamal deploy -d staging`
+# again. Until then the app answers over plain HTTP, routed by Host header:
+#   curl -H 'Host: portfolio.staging.kodejedi.com' http://51.89.193.136/api/v1/health
+proxy:
+  host: portfolio.staging.kodejedi.com
+  ssl: false
+  app_port: 3333
+  forward_headers: true
+  healthcheck:
+    path: /api/v1/health
+    interval: 10
+    timeout: 60
+
+env:
+  clear:
+    HOST: 0.0.0.0
+    PORT: 3333
+    REDIS_HOST: ghostfolio-redis
+    REDIS_PORT: 6379
+    DATA_SOURCES: '["COINGECKO","MANUAL","NGN_MARKET","YAHOO"]'
+    ENABLE_FEATURE_CRON: 'true'
+    # The NGX capture cron is pinned to Africa/Lagos in code, so the
+    # container's own TZ does not affect when it fires. Set for log
+    # readability only.
+    TZ: Africa/Lagos
+  secret:
+    # MUST repeat every entry from deploy.yml's env.secret. Kamal REPLACES
+    # this array on destination merge rather than concatenating, so listing
+    # only the staging-specific keys silently drops the rest from the
+    # container — Ghostfolio would then boot without DATABASE_URL and fail
+    # its health check. (The db accessory repeats POSTGRES_PASSWORD for the
+    # same reason.)
+    - ACCESS_TOKEN_SALT
+    - API_KEY_NGN_MARKET
+    - DATABASE_URL
+    - JWT_SECRET_KEY
+    - NGX_DIGEST_FROM_EMAIL
+    - NGX_DIGEST_TO_EMAIL
+    - REDIS_PASSWORD
+    - RESEND_API_KEY
+
+accessories:
+  db:
+    image: postgres:15-alpine
+    host: 51.89.193.136
+    env:
+      clear:
+        POSTGRES_DB: ghostfolio
+        POSTGRES_USER: ghostfolio
+      secret:
+        - POSTGRES_PASSWORD
+    directories:
+      - ghostfolio_postgres_data_staging:/var/lib/postgresql/data
+
+  redis:
+    image: redis:alpine
+    host: 51.89.193.136
+    env:
+      secret:
+        - REDIS_PASSWORD
+    # Ghostfolio always authenticates to Redis, so the server must require a
+    # password; without this it starts open and every app connection fails.
+    cmd: >-
+      sh -c 'redis-server --requirepass "$REDIS_PASSWORD"'
+    directories:
+      - ghostfolio_redis_data_staging:/data

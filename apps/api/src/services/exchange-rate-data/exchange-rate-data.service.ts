@@ -1,5 +1,7 @@
 import { LogPerformance } from '@ghostfolio/api/interceptors/performance-logging/performance-logging.interceptor';
+import { ConfigurationService } from '@ghostfolio/api/services/configuration/configuration.service';
 import { DataProviderService } from '@ghostfolio/api/services/data-provider/data-provider.service';
+import { NGN_MARKET_CURRENCY } from '@ghostfolio/api/services/data-provider/ngn-market/ngn-market.mapper';
 import { DataGatheringItem } from '@ghostfolio/api/services/interfaces/interfaces';
 import { MarketDataService } from '@ghostfolio/api/services/market-data/market-data.service';
 import { PrismaService } from '@ghostfolio/api/services/prisma/prisma.service';
@@ -19,6 +21,7 @@ import { DataProviderHistoricalResponse } from '@ghostfolio/common/interfaces';
 
 import { utc } from '@date-fns/utc';
 import { Injectable, Logger } from '@nestjs/common';
+import { DataSource } from '@prisma/client';
 import {
   eachDayOfInterval,
   format,
@@ -41,6 +44,7 @@ export class ExchangeRateDataService {
   private exchangeRates: { [currencyPair: string]: number } = {};
 
   public constructor(
+    private readonly configurationService: ConfigurationService,
     private readonly dataProviderService: DataProviderService,
     private readonly marketDataService: MarketDataService,
     private readonly prismaService: PrismaService,
@@ -310,8 +314,9 @@ export class ExchangeRateDataService {
     } else if (derivedCurrencyFactor) {
       factor = derivedCurrencyFactor;
     } else {
-      const dataSource =
-        this.dataProviderService.getDataSourceForExchangeRates();
+      const dataSource = this.getDataSourceForCurrencyPair({
+        currencies: [aFromCurrency, aToCurrency]
+      });
       const symbol = `${aFromCurrency}${aToCurrency}`;
 
       const marketData = await this.marketDataService.get({
@@ -334,8 +339,10 @@ export class ExchangeRateDataService {
           } else {
             marketPriceBaseCurrencyFromCurrency = (
               await this.marketDataService.get({
-                dataSource,
                 date: aDate,
+                dataSource: this.getDataSourceForCurrencyPair({
+                  currencies: [DEFAULT_CURRENCY, aFromCurrency]
+                }),
                 symbol: `${DEFAULT_CURRENCY}${aFromCurrency}`
               })
             )?.marketPrice;
@@ -348,8 +355,10 @@ export class ExchangeRateDataService {
           } else {
             marketPriceBaseCurrencyToCurrency = (
               await this.marketDataService.get({
-                dataSource,
                 date: aDate,
+                dataSource: this.getDataSourceForCurrencyPair({
+                  currencies: [DEFAULT_CURRENCY, aToCurrency]
+                }),
                 symbol: `${DEFAULT_CURRENCY}${aToCurrency}`
               })
             )?.marketPrice;
@@ -410,7 +419,9 @@ export class ExchangeRateDataService {
       return factors;
     }
 
-    const dataSource = this.dataProviderService.getDataSourceForExchangeRates();
+    const dataSource = this.getDataSourceForCurrencyPair({
+      currencies: [currencyFrom, currencyTo]
+    });
     const symbol = `${currencyFrom}${currencyTo}`;
 
     const marketData = await this.marketDataService.getRange({
@@ -446,7 +457,9 @@ export class ExchangeRateDataService {
           const marketData = await this.marketDataService.getRange({
             assetProfileIdentifiers: [
               {
-                dataSource,
+                dataSource: this.getDataSourceForCurrencyPair({
+                  currencies: [DEFAULT_CURRENCY, currencyFrom]
+                }),
                 symbol: `${DEFAULT_CURRENCY}${currencyFrom}`
               }
             ],
@@ -469,7 +482,9 @@ export class ExchangeRateDataService {
           const marketData = await this.marketDataService.getRange({
             assetProfileIdentifiers: [
               {
-                dataSource,
+                dataSource: this.getDataSourceForCurrencyPair({
+                  currencies: [DEFAULT_CURRENCY, currencyTo]
+                }),
                 symbol: `${DEFAULT_CURRENCY}${currencyTo}`
               }
             ],
@@ -573,9 +588,32 @@ export class ExchangeRateDataService {
         return {
           currency1: DEFAULT_CURRENCY,
           currency2: currency,
-          dataSource: this.dataProviderService.getDataSourceForExchangeRates(),
+          dataSource: this.getDataSourceForCurrencyPair({
+            currencies: [currency]
+          }),
           symbol: `${DEFAULT_CURRENCY}${currency}`
         };
       });
+  }
+
+  /**
+   * NGN Market is the more reliable source for NGN rates, but it only knows
+   * NGN-foreign pairs — so it is applied to those pairs alone, and only when a
+   * key is configured. Without a key this is a no-op and the globally
+   * configured exchange rate data source is used for everything.
+   */
+  private getDataSourceForCurrencyPair({
+    currencies
+  }: {
+    currencies: string[];
+  }) {
+    if (
+      currencies.includes(NGN_MARKET_CURRENCY) &&
+      this.configurationService.get('API_KEY_NGN_MARKET')
+    ) {
+      return DataSource.NGN_MARKET;
+    }
+
+    return this.dataProviderService.getDataSourceForExchangeRates();
   }
 }

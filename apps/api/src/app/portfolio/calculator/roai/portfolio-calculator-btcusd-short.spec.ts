@@ -75,6 +75,7 @@ describe('PortfolioCalculator', () => {
       null,
       null,
       null,
+      null,
       null
     );
 

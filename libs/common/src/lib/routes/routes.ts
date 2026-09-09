@@ -174,6 +174,25 @@ export const internalRoutes = {
     routerLink: ['/i18n'],
     title: $localize`Internationalization`
   },
+  ngx: {
+    path: 'ngx',
+    routerLink: ['/ngx'],
+    subRoutes: {
+      screener: {
+        path: 'screener',
+        routerLink: ['/ngx', 'screener'],
+        title: $localize`Screener`
+      },
+      symbol: {
+        path: 'symbols/:symbol',
+        routerLink: (aSymbol: string) => {
+          return ['/ngx', 'symbols', aSymbol];
+        },
+        title: $localize`Symbol`
+      }
+    },
+    title: 'NGX Signals'
+  },
   portfolio: {
     path: 'portfolio',
     routerLink: ['/portfolio'],

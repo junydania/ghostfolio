@@ -65,6 +65,7 @@ describe('RoaiPortfolioCalculator stock splits', () => {
       null,
       null,
       null,
+      null,
       null
     );
     portfolioSnapshotService = new PortfolioSnapshotService(null, null);

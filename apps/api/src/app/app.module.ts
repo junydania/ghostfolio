@@ -62,6 +62,8 @@ import { HealthModule } from './health/health.module';
 import { ImportModule } from './import/import.module';
 import { InfoModule } from './info/info.module';
 import { LogoModule } from './logo/logo.module';
+import { NgxAnalyticsApiModule } from './ngx-analytics/ngx-analytics.module';
+import { NgxSignalsApiModule } from './ngx-signals/ngx-signals.module';
 import { PlatformModule } from './platform/platform.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { RedisCacheModule } from './redis-cache/redis-cache.module';
@@ -130,6 +132,8 @@ import { UserModule } from './user/user.module';
     LogoModule,
     MarketDataModule,
     McpModule,
+    NgxAnalyticsApiModule,
+    NgxSignalsApiModule,
     PlatformModule,
     PlatformsModule,
     PortfolioModule,

@@ -2,6 +2,12 @@ import { UserModule } from '@ghostfolio/api/app/user/user.module';
 import { UserService } from '@ghostfolio/api/app/user/user.service';
 import { ConfigurationModule } from '@ghostfolio/api/services/configuration/configuration.module';
 import { ConfigurationService } from '@ghostfolio/api/services/configuration/configuration.service';
+import { NgxAnalyticsModule } from '@ghostfolio/api/services/ngx-analytics/ngx-analytics.module';
+import { NgxAnalyticsService } from '@ghostfolio/api/services/ngx-analytics/ngx-analytics.service';
+import { NgxDigestService } from '@ghostfolio/api/services/ngx-notifications/ngx-digest.service';
+import { NgxNotificationModule } from '@ghostfolio/api/services/ngx-notifications/ngx-notification.module';
+import { NgxSignalsModule } from '@ghostfolio/api/services/ngx-signals/ngx-signals.module';
+import { NgxSignalsService } from '@ghostfolio/api/services/ngx-signals/ngx-signals.service';
 import { PropertyModule } from '@ghostfolio/api/services/property/property.module';
 import { PropertyService } from '@ghostfolio/api/services/property/property.service';
 import { DataGatheringQueueModule } from '@ghostfolio/api/services/queues/data-gathering/data-gathering.module';
@@ -19,6 +25,9 @@ import { CronService } from './cron.service';
   imports: [
     ConfigurationModule,
     DataGatheringQueueModule,
+    NgxAnalyticsModule,
+    NgxNotificationModule,
+    NgxSignalsModule,
     PropertyModule,
     StatisticsGatheringQueueModule,
     TwitterBotModule,
@@ -29,6 +38,9 @@ import { CronService } from './cron.service';
       inject: [
         ConfigurationService,
         DataGatheringService,
+        NgxAnalyticsService,
+        NgxDigestService,
+        NgxSignalsService,
         PropertyService,
         StatisticsGatheringService,
         TwitterBotService,
@@ -38,6 +50,9 @@ import { CronService } from './cron.service';
       useFactory: (
         configurationService: ConfigurationService,
         dataGatheringService: DataGatheringService,
+        ngxAnalyticsService: NgxAnalyticsService,
+        ngxDigestService: NgxDigestService,
+        ngxSignalsService: NgxSignalsService,
         propertyService: PropertyService,
         statisticsGatheringService: StatisticsGatheringService,
         twitterBotService: TwitterBotService,
@@ -52,6 +67,9 @@ import { CronService } from './cron.service';
         return new CronService(
           configurationService,
           dataGatheringService,
+          ngxAnalyticsService,
+          ngxDigestService,
+          ngxSignalsService,
           propertyService,
           statisticsGatheringService,
           twitterBotService,

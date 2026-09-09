@@ -1,0 +1,155 @@
+<div class="container">
+  <div class="row">
+    <div class="col-xs-12 col-md-10 offset-md-1">
+      <div class="mb-2">
+        <a class="text-muted" [routerLink]="signalsRouterLink"
+          ><small i18n>Back to signals</small></a
+        >
+      </div>
+
+      <h1 class="h3 mb-1">{{ symbol() }}</h1>
+      <div class="mb-4 text-muted">
+        <small i18n>Nigerian Exchange, prices in NGN</small>
+      </div>
+
+      <!-- Price history -->
+      <div class="align-items-center d-flex justify-content-between mb-3">
+        <h2 class="h5 mb-0" i18n>Price history</h2>
+        <gf-toggle
+          [defaultValue]="days().toString()"
+          [isLoading]="isLoadingHistory()"
+          [options]="daysOptions"
+          (valueChange)="onChangeDays($event.value)"
+        />
+      </div>
+
+      @if (isLoadingHistory()) {
+        <ngx-skeleton-loader
+          animation="pulse"
+          class="d-block mb-4"
+          [theme]="{
+            height: '12rem',
+            width: '100%'
+          }"
+        />
+      } @else if (hasHistoryError()) {
+        <div class="mb-4 p-3 text-center text-muted">
+          <small i18n
+            >The price history could not be loaded. Please try again
+            later.</small
+          >
+        </div>
+      } @else if (!historicalDataItems().length) {
+        <div class="mb-4 p-3 text-center text-muted">
+          <small i18n
+            >No prices have been captured for this symbol in this period yet.
+            Capture runs once per trading day, after the NGX close.</small
+          >
+        </div>
+      } @else {
+        <div class="mb-3 row">
+          <div class="col-6 col-md-3 mb-2">
+            <gf-value
+              size="medium"
+              [isCurrency]="true"
+              [locale]="locale()"
+              [unit]="NGX_CURRENCY"
+              [value]="latestDataPoint()?.price ?? '–'"
+              ><ng-container i18n>Last price</ng-container></gf-value
+            >
+          </div>
+          <div class="col-6 col-md-3 mb-2">
+            <gf-value
+              size="medium"
+              [class.text-danger]="history()?.performancePercent < 0"
+              [class.text-success]="history()?.performancePercent > 0"
+              [locale]="locale()"
+              [precision]="2"
+              [unit]="'%'"
+              [value]="history()?.performancePercent ?? '–'"
+              ><ng-container i18n>Performance</ng-container></gf-value
+            >
+          </div>
+          <div class="col-6 col-md-3 mb-2">
+            <gf-value
+              size="medium"
+              [isCurrency]="true"
+              [locale]="locale()"
+              [unit]="NGX_CURRENCY"
+              [value]="history()?.high ?? '–'"
+              ><ng-container i18n>High</ng-container></gf-value
+            >
+          </div>
+          <div class="col-6 col-md-3 mb-2">
+            <gf-value
+              size="medium"
+              [isCurrency]="true"
+              [locale]="locale()"
+              [unit]="NGX_CURRENCY"
+              [value]="history()?.low ?? '–'"
+              ><ng-container i18n>Low</ng-container></gf-value
+            >
+          </div>
+        </div>
+
+        <gf-line-chart
+          class="d-block mb-2"
+          [colorScheme]="user()?.settings?.colorScheme"
+          [currency]="NGX_CURRENCY"
+          [historicalDataItems]="historicalDataItems()"
+          [isAnimated]="true"
+          [label]="symbol()"
+          [locale]="locale()"
+          [showXAxis]="true"
+          [showYAxis]="true"
+        />
+
+        <div class="mb-4 text-muted">
+          <small
+            ><ng-container i18n>Based on</ng-container>
+            {{ historicalDataItems().length }}
+            <ng-container i18n>stored trading day(s).</ng-container></small
+          >
+        </div>
+      }
+
+      <!-- Signal history -->
+      <h2 class="h5 mb-2" i18n>Signal history</h2>
+      @if (isLoadingSignals()) {
+        @for (item of [0, 1]; track item) {
+          <ngx-skeleton-loader
+            animation="pulse"
+            class="d-block mb-3"
+            [theme]="{
+              height: '8rem',
+              width: '100%'
+            }"
+          />
+        }
+      } @else if (hasSignalsError()) {
+        <div class="p-3 text-center text-muted">
+          <small i18n
+            >The signal history could not be loaded. Please try again
+            later.</small
+          >
+        </div>
+      } @else if (!signals().length) {
+        <div class="p-3 text-center text-muted">
+          <small i18n
+            >No signal has been produced for this symbol yet. A rule below its
+            minimum history produces no signal at all.</small
+          >
+        </div>
+      } @else {
+        @for (signal of signals(); track signal.date + signal.type) {
+          <gf-ngx-signal-card
+            class="mb-3"
+            [locale]="locale()"
+            [showSymbolLink]="false"
+            [signal]="signal"
+          />
+        }
+      }
+    </div>
+  </div>
+</div>

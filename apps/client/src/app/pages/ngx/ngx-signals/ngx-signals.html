@@ -1,0 +1,87 @@
+<div class="container">
+  <h1 class="d-none d-sm-block h3 mb-4 text-center" i18n>Signals</h1>
+
+  <div class="row">
+    <div class="col-xs-12 col-md-10 offset-md-1">
+      <div
+        class="gf-text-wrap-balance line-height-1 mb-4 text-center text-muted"
+      >
+        <small i18n
+          >A score runs from -1 to +1 and expresses how strong the observed
+          evidence is: positive counts in favour of buying, negative against. It
+          is not a probability, a forecast or financial advice. Every signal
+          below shows the values it was derived from.</small
+        >
+      </div>
+
+      @if (isLoading()) {
+        @for (item of [0, 1, 2]; track item) {
+          <ngx-skeleton-loader
+            animation="pulse"
+            class="d-block mb-3"
+            [theme]="{
+              height: '8rem',
+              width: '100%'
+            }"
+          />
+        }
+      } @else if (hasError()) {
+        <div class="p-3 text-center text-muted">
+          <small i18n
+            >The signals could not be loaded. Please try again later.</small
+          >
+        </div>
+      } @else if (!signals().length) {
+        <div class="p-3 text-center text-muted">
+          <div i18n>No signals have been evaluated yet.</div>
+          <div class="gf-text-wrap-balance mt-2">
+            <small i18n
+              >The exchange-wide snapshot is captured once per trading day,
+              after the NGX close, and the rules only produce a signal once
+              enough days have accumulated. This page fills up one trading day
+              at a time.</small
+            >
+          </div>
+        </div>
+      } @else {
+        <div class="mb-3 text-center text-muted">
+          <small
+            ><ng-container i18n>Trading day</ng-container>
+            {{ evaluationDate() }}</small
+          >
+        </div>
+
+        @for (group of groups(); track group.direction) {
+          <div class="mb-4">
+            <div class="align-items-baseline d-flex justify-content-between">
+              <h2 class="h5 mb-0">
+                {{ group.label }}
+                <span class="text-muted">({{ group.signals.length }})</span>
+              </h2>
+              <small class="text-muted text-right">{{
+                group.description
+              }}</small>
+            </div>
+
+            @for (signal of group.signals; track signal.symbol + signal.type) {
+              <gf-ngx-signal-card
+                class="mt-2"
+                [locale]="locale()"
+                [showDate]="false"
+                [signal]="signal"
+              />
+            } @empty {
+              <div class="mt-2 text-muted">
+                <small>{{ group.emptyDescription }}</small>
+                <small i18n>
+                  A rule below its minimum history produces no signal at all, so
+                  an empty group is normal.</small
+                >
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>
