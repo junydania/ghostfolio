@@ -12,15 +12,15 @@ function createCompany(
   values: Partial<NgnMarketCompanyListItem> = {}
 ): NgnMarketCompanyListItem {
   return {
-    change7dPercent: null,
-    change52wPercent: null,
+    change_7d_percent: null,
+    change_52w_percent: null,
     day_high: null,
     day_low: null,
-    high52wk: null,
+    high_52wk: null,
     id: 'id',
     last_updated: null,
     logo_url: null,
-    low52wk: null,
+    low_52wk: null,
     market_cap: null,
     name: 'A Company',
     prev_close: null,
@@ -122,12 +122,12 @@ describe('NgxAnalyticsMapper', () => {
         date,
         companies: [
           createCompany({
-            change7dPercent: 1.5,
-            change52wPercent: -12,
+            change_7d_percent: 1.5,
+            change_52w_percent: -12,
             day_high: 512,
             day_low: 498,
-            high52wk: 640,
-            low52wk: 401,
+            high_52wk: 640,
+            low_52wk: 401,
             market_cap: 8_600_000_000,
             prev_close: 500,
             price: 505.5,

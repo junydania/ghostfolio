@@ -210,77 +210,51 @@ describe('NgnMarketMapper', () => {
   });
 
   describe('toNgnPerUnitRates', () => {
-    it('uses inverse_rate, which is NGN per unit of foreign currency', () => {
+    // Verified against the live API 2026-09-09: rate is NGN per unit of the
+    // foreign currency (USD 1369.63), inverse_rate is the reciprocal.
+    const rate = (over = {}) => {
+      return {
+        currency: 'USD',
+        daily_change: null,
+        daily_change_percent: null,
+        inverse_rate: 0.00073,
+        last_updated: null,
+        rate: 1369.63,
+        ...over
+      };
+    };
+
+    it('uses rate, which is NGN per unit of foreign currency', () => {
       expect(
-        toNgnPerUnitRates({
-          date: '2026-03-04',
-          rates: [
-            {
-              currency: 'USD',
-              daily_change: null,
-              daily_change_percent: null,
-              inverse_rate: 1605.14,
-              last_updated: null,
-              rate: 0.000623
-            }
-          ],
-          target: 'NGN'
-        })
-      ).toEqual({ USD: 1605.14 });
+        toNgnPerUnitRates({ date: null, rates: [rate()], target: 'NGN' })
+      ).toEqual({ USD: 1369.63 });
     });
 
-    it('inverts rate when inverse_rate is missing', () => {
+    it('never returns the reciprocal, which would invert every conversion', () => {
       const rates = toNgnPerUnitRates({
         date: null,
-        rates: [
-          {
-            currency: 'GBP',
-            daily_change: null,
-            daily_change_percent: null,
-            inverse_rate: null,
-            last_updated: null,
-            rate: 0.0005
-          }
-        ],
-        target: 'NGN'
-      });
-
-      expect(rates.GBP).toBe(2000);
-    });
-
-    it('never returns the raw NGN-per-1 rate, which would be inverted', () => {
-      const rates = toNgnPerUnitRates({
-        date: null,
-        rates: [
-          {
-            currency: 'USD',
-            daily_change: null,
-            daily_change_percent: null,
-            inverse_rate: null,
-            last_updated: null,
-            rate: 0.000623
-          }
-        ],
+        rates: [rate()],
         target: 'NGN'
       });
 
       expect(rates.USD).toBeGreaterThan(1);
     });
 
+    it('falls back to 1/inverse_rate when rate is missing', () => {
+      const rates = toNgnPerUnitRates({
+        date: null,
+        rates: [rate({ currency: 'GBP', inverse_rate: 0.0005, rate: null })],
+        target: 'NGN'
+      });
+
+      expect(rates.GBP).toBe(2000);
+    });
+
     it('skips unusable rates and tolerates a malformed payload', () => {
       expect(
         toNgnPerUnitRates({
           date: null,
-          rates: [
-            {
-              currency: 'EUR',
-              daily_change: null,
-              daily_change_percent: null,
-              inverse_rate: null,
-              last_updated: null,
-              rate: 0
-            }
-          ],
+          rates: [rate({ currency: 'EUR', inverse_rate: 0, rate: 0 })],
           target: 'NGN'
         })
       ).toEqual({});

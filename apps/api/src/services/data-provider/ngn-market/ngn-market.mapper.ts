@@ -169,10 +169,14 @@ export function toAssetProfile({
 }
 
 /**
- * NGN Market reports `rate` as the amount of foreign currency that ₦1 buys
- * (a USD rate of 0.000623 means ₦1 = $0.000623), while Ghostfolio's USDNGN
- * pair means the amount of NGN that $1 buys. `inverse_rate` is already that
- * figure; falling back to 1/rate keeps it correct if the field is absent.
+ * Verified against the live API on 2026-09-09: `rate` is the amount of NGN
+ * that one unit of the foreign currency buys (USD rate = 1369.63), which is
+ * exactly what Ghostfolio's USDNGN pair means. `inverse_rate` is the
+ * reciprocal (0.00073).
+ *
+ * Note that SKILL.md describes these two fields the other way round. The live
+ * response is authoritative here — trusting the doc inverted every NGN
+ * conversion by a factor of ~1.9 million.
  */
 export function toNgnPerUnitRates(response: NgnMarketForexCurrentResponse): {
   [currency: string]: number;
@@ -190,10 +194,14 @@ export function toNgnPerUnitRates(response: NgnMarketForexCurrentResponse): {
 
     let ngnPerUnit: number | null = null;
 
-    if (typeof inverse_rate === 'number' && isFinite(inverse_rate)) {
-      ngnPerUnit = inverse_rate;
-    } else if (typeof rate === 'number' && isFinite(rate) && rate !== 0) {
-      ngnPerUnit = 1 / rate;
+    if (typeof rate === 'number' && isFinite(rate) && rate > 0) {
+      ngnPerUnit = rate;
+    } else if (
+      typeof inverse_rate === 'number' &&
+      isFinite(inverse_rate) &&
+      inverse_rate !== 0
+    ) {
+      ngnPerUnit = 1 / inverse_rate;
     }
 
     if (ngnPerUnit !== null && isFinite(ngnPerUnit)) {

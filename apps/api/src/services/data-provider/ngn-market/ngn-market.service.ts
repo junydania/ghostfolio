@@ -112,15 +112,28 @@ export class NgnMarketService implements DataProviderInterface {
       );
     }
 
-    if (!company) {
-      // A transient failure must not be reported as delisted: the data
-      // gathering processor deactivates the symbol profile when it is.
-      throw new Error(
-        `Could not get asset profile for ${symbol} (${this.getName()})`
-      );
+    if (company) {
+      return toAssetProfile({ company, symbol });
     }
 
-    return toAssetProfile({ company, symbol });
+    // The company detail endpoint requires a Hobby plan. On the Free plan it
+    // answers 403, so fall back to the listing and identifier endpoints, which
+    // are free and together carry everything the profile needs except the
+    // description. Without this, no NGX symbol can be added at all.
+    const fallback = await this.getAssetProfileFromFreeEndpoints({
+      requestTimeout,
+      symbol
+    });
+
+    if (fallback) {
+      return fallback;
+    }
+
+    // A transient failure must not be reported as delisted: the data
+    // gathering processor deactivates the symbol profile when it is.
+    throw new Error(
+      `Could not get asset profile for ${symbol} (${this.getName()})`
+    );
   }
 
   /**
@@ -271,6 +284,42 @@ export class NgnMarketService implements DataProviderInterface {
       });
 
     return { items };
+  }
+
+  private async getAssetProfileFromFreeEndpoints({
+    requestTimeout,
+    symbol
+  }: {
+    requestTimeout: number;
+    symbol: string;
+  }): Promise<Partial<SymbolProfile> | null> {
+    const [companies, identifiers] = await Promise.all([
+      this.getCompanies({ requestTimeout }),
+      this.getIdentifiers({ requestTimeout })
+    ]);
+
+    const normalizedSymbol = symbol.toUpperCase();
+
+    const company = companies.find(({ symbol: aSymbol }) => {
+      return aSymbol?.toUpperCase() === normalizedSymbol;
+    });
+
+    const identifier = identifiers.find(({ symbol: aSymbol }) => {
+      return aSymbol?.toUpperCase() === normalizedSymbol;
+    });
+
+    if (!company && !identifier) {
+      return null;
+    }
+
+    return toAssetProfile({
+      symbol,
+      company: {
+        ...company,
+        international_sec_id: identifier?.international_sec_id ?? null,
+        name: company?.name ?? identifier?.name
+      } as NgnMarketCompanyDetail
+    });
   }
 
   private async getCompanies({

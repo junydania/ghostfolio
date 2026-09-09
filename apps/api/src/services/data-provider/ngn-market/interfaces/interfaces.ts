@@ -17,15 +17,17 @@ export interface NgnMarketResponse<T> {
 }
 
 export interface NgnMarketCompanyListItem {
-  change7dPercent: number | null;
-  change52wPercent: number | null;
+  change_1m_percent?: number | null;
+  change_7d_percent: number | null;
+  change_52w_percent: number | null;
+  change_ytd_percent?: number | null;
   day_high: number | null;
   day_low: number | null;
-  high52wk: number | null;
+  high_52wk: number | null;
   id: string;
   last_updated: string | null;
   logo_url: string | null;
-  low52wk: number | null;
+  low_52wk: number | null;
   market_cap: number | null;
   name: string;
   prev_close: number | null;
