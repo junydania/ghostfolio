@@ -56,6 +56,17 @@ env:
 # arm64 laptop's arch.
 builder:
   arch: amd64
+  # Build on the staging box rather than emulating amd64 on an arm64 laptop.
+  # Ghostfolio compiles the Angular client during the image build, which under
+  # QEMU takes tens of minutes; the box builds it natively in a few. It has 4
+  # cores and ~6 GB free, which is enough, and buildx is already installed.
+  remote: ssh://docker@51.89.193.136
+
+# Kamal connects as the hardened `docker` deploy user created by the
+# kodejedi-saas Ansible — not root. Terminal deploys authorize
+# ~/.ssh/kodejedi_saas_ci_deploy.
+ssh:
+  user: docker
 
 aliases:
   logs: app logs -f
