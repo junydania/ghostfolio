@@ -89,8 +89,11 @@ describe('NgxDigestRenderer', () => {
       const { html, subject, text } = renderDigest({ date, signals: [] });
 
       expect(subject).toBe('NGX signals 2026-09-08 — no action');
-      expect(text).toContain('NGX signals for 2026-09-08');
-      expect(html).toContain('NGX signals for 2026-09-08');
+      expect(text).toContain('2026-09-08');
+      expect(html).toContain('2026-09-08');
+      // An empty day must explain itself rather than arriving blank.
+      expect(text).toContain('No rule produced a signal');
+      expect(html).toContain('No rule produced a signal');
     });
 
     it('includes the rationale so a signal can be acted on', () => {
@@ -128,9 +131,40 @@ describe('NgxDigestRenderer', () => {
     });
 
     it('does not present signals as advice', () => {
-      const { text } = renderDigest({ date, signals: [buy] });
+      const { html, text } = renderDigest({ date, signals: [buy] });
 
-      expect(text).toContain('Evidence, not advice.');
+      expect(text).toContain('not financial advice');
+      expect(html).toContain('not a forecast');
+    });
+
+    it('renders a table-based layout with a preheader', () => {
+      // Email clients need table layout; the preheader controls the inbox
+      // preview line instead of leaking the first visible text.
+      const { html } = renderDigest({ date, signals: [buy, avoid] });
+
+      expect(html).toContain('<!doctype html>');
+      expect(html).toContain('role="presentation"');
+      expect(html).toContain('max-height:0');
+    });
+
+    it('separates observed values from the thresholds they were tested against', () => {
+      const { html } = renderDigest({
+        date,
+        signals: [
+          {
+            ...buy,
+            rationale: {
+              inputs: { price: 512.5 },
+              summary: 'Above its average.',
+              thresholds: { buyPosition: 0.9 }
+            }
+          }
+        ]
+      });
+
+      expect(html).toContain('Observed');
+      expect(html).toContain('Thresholds tested');
+      expect(html).toContain('Buy position');
     });
   });
 });
